@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { getDb } from './db';
+import { createLogger } from './log';
+
+const log = createLogger('conversations');
 
 export type Role = 'user' | 'assistant';
 
@@ -31,6 +34,7 @@ export function createConversation(title: string): string {
   getDb()
     .prepare('INSERT INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)')
     .run(id, title.slice(0, 80) || 'New chat', now, now);
+  log.info(`created conversation ${id}: "${title.slice(0, 80)}"`);
   return id;
 }
 
@@ -58,15 +62,18 @@ export function addMessage(
      VALUES (?, ?, ?, ?, ?, ?)`
   ).run(id, conversationId, role, content, contextJson ?? null, now);
   db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').run(now, conversationId);
+  log.debug(`added ${role} message ${id} to ${conversationId} (${content.length} chars)`);
   return id;
 }
 
 export function renameConversation(id: string, title: string): void {
   getDb().prepare('UPDATE conversations SET title = ? WHERE id = ?').run(title.slice(0, 80), id);
+  log.info(`renamed conversation ${id} to "${title.slice(0, 80)}"`);
 }
 
 export function deleteConversation(id: string): void {
   getDb().prepare('DELETE FROM conversations WHERE id = ?').run(id);
+  log.info(`deleted conversation ${id}`);
 }
 
 export function generateTitle(firstUserMessage: string): string {
