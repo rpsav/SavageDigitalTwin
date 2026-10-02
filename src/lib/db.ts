@@ -2,6 +2,9 @@ import Database from 'better-sqlite3';
 import * as sqliteVec from 'sqlite-vec';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { createLogger } from './log';
+
+const log = createLogger('db');
 
 const DATA_DIR = join(process.cwd(), 'data');
 const DB_PATH = join(DATA_DIR, 'twin.db');
@@ -9,6 +12,7 @@ const DB_PATH = join(DATA_DIR, 'twin.db');
 export const EMBEDDING_DIM = 768; // nomic-embed-text
 
 function openDb(): Database.Database {
+  log.info(`opening database at ${DB_PATH}`);
   mkdirSync(DATA_DIR, { recursive: true });
   const db = new Database(DB_PATH);
   db.pragma('journal_mode = WAL');
@@ -48,6 +52,7 @@ function openDb(): Database.Database {
     );
   `);
 
+  log.info(`database ready (sqlite-vec loaded, embedding dimension ${EMBEDDING_DIM})`);
   return db;
 }
 
