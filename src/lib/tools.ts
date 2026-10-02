@@ -1,5 +1,8 @@
 import { getCalendarEvents } from './connectors/appleCalendar';
 import { searchEmails } from './connectors/appleMail';
+import { createLogger, preview, since } from './log';
+
+const log = createLogger('tools');
 
 export interface Provenance {
   calendarEvents: number;
@@ -51,12 +54,19 @@ export async function runTool(
   args: ToolArgs,
   provenance: Provenance
 ): Promise<string> {
+  const started = Date.now();
+  log.info(`running tool ${name} with args ${JSON.stringify(args)}`);
+
   if (name === 'get_calendar_events') {
     const start = String(args.start_date ?? '');
     const end = String(args.end_date ?? '');
     const { events, error } = await getCalendarEvents(start, end);
-    if (error) return `Error: ${error}`;
+    if (error) {
+      log.error(`${name} returned an error in ${since(started)}: ${error}`);
+      return `Error: ${error}`;
+    }
     provenance.calendarEvents += events.length;
+    log.info(`${name} returned ${events.length} events in ${since(started)}`);
     if (events.length === 0) return 'No events found in that range.';
     return events.map((e, i) => `Event ${i + 1}:\n${e}`).join('\n\n');
   }
@@ -65,8 +75,13 @@ export async function runTool(
     const query = String(args.query ?? '');
     const limit = typeof args.limit === 'number' ? args.limit : 10;
     const { emails, error } = await searchEmails(query, limit);
-    if (error) return `Error: ${error}`;
+    if (error) {
+      log.error(`${name} returned an error in ${since(started)}: ${error}`);
+      return `Error: ${error}`;
+    }
     provenance.emails += emails.length;
+    log.info(`${name} returned ${emails.length} emails in ${since(started)}`);
+    emails.forEach((e, i) => log.debug(`  email ${i + 1}: "${preview(e.subject, 60)}"`));
     if (emails.length === 0) return 'No matching emails found.';
     return emails
       .map(
@@ -76,5 +91,6 @@ export async function runTool(
       .join('\n\n');
   }
 
+  log.warn(`unknown tool requested: ${name}`);
   return `Unknown tool: ${name}`;
 }
